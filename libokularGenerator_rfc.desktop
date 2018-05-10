@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Service
+Name=rfc
+Comment=Plain RFC backend for Okular
+X-KDE-ServiceTypes=okular/Generator
+MimeType=text/plain;
+X-KDE-Library=okularGenerator_rfc
+X-KDE-Priority=3
+X-KDE-okularAPIVersion=1
+X-KDE-okularHasInternalSettings=true
