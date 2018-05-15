@@ -35,11 +35,15 @@ public:
     ~Converter();
 
 private:
-    QString &toHtml(QFile &file, QString &output);
+    typedef QPair<int, QString> Section;
+    typedef QList<Section> SectionArray;
 
-private:
     void escapeCharacters(QString &line);
-    bool parsePage(QTextStream &stream, QString &content, bool insertHeader = true);
+    bool parseTitle(QTextStream &stream, QString &content, SectionArray &sections);
+    bool parsePage(QTextStream &stream, QString &content, SectionArray &sections, bool insertHeader = true);
+
+    void addTitiles(const SectionArray &sections, const QTextBlock &block);
+
     void parseHeader(QTextStream &stream, QString &output);
     void parseTitle(QTextStream &stream, QString &output);
 

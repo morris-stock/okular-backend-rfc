@@ -41,12 +41,46 @@ void Converter::escapeCharacters(QString &line)
     line.replace(QChar('\"'), QString("&quot;"));
 }
 
-bool Converter::parsePage(QTextStream &stream, QString &content, bool insertHeader)
+bool Converter::parseTitle(QTextStream &stream, QString &content, Converter::SectionArray &sections)
 {
-    content.clear();
+    QRegExp regExpTitle("^(\\s+)(\\w.*)$");
 
+    QString title;
+
+    QString line;
+    do {
+        line = stream.readLine();
+        if (line.isEmpty()) {
+            content += "\n";
+
+            if (!title.isEmpty())
+                break;
+
+            continue;
+        }
+
+        if ((line.size() < 60) && (regExpTitle.indexIn(line) != -1)) {
+            if (!title.isEmpty())
+                title += " ";
+            title += regExpTitle.cap(2);
+
+            line.replace(regExpTitle, "\\1<b>\\2</b>");
+        }
+
+        content += line + "\n";
+    } while (!stream.atEnd());
+
+    if (!title.isEmpty())
+        emit addMetaData(Okular::DocumentInfo::Title, title);
+
+    return parsePage(stream, content, sections, false);
+}
+
+bool Converter::parsePage(QTextStream &stream, QString &content, SectionArray &sections, bool insertHeader)
+{
     QRegExp regExpFooter("\\[Page\\s\\d+\\]$");
     QRegExp regExpHeader("^RFC\\s\\d+\\s+.*$");
+    QRegExp regExpSection("^([\\d+][\\d+\\.]*)[\\s]+(.*)$");
 
     QString line;
     while (!stream.atEnd()) {
@@ -56,6 +90,12 @@ bool Converter::parsePage(QTextStream &stream, QString &content, bool insertHead
             line.prepend("<hr><font color=\"Grey\">");
             line.append("</font></hr>");
             insertHeader = false;
+        } else if (regExpSection.indexIn(line) != -1) {
+            QStringList fields = regExpSection.cap(1).split(".", QString::SkipEmptyParts);
+            sections.append(Section(fields.size(), line));
+
+            line.prepend("<b>");
+            line.append("</b>");
         } else if (regExpFooter.indexIn(line) != -1) {
             line.prepend("<font color=\"Grey\">");
             line.append("</font>");
@@ -66,6 +106,13 @@ bool Converter::parsePage(QTextStream &stream, QString &content, bool insertHead
     }
 
     return false;
+}
+
+void Converter::addTitiles(const Converter::SectionArray &sections, const QTextBlock &block)
+{
+    foreach (const Section &sec, sections) {
+        emit addTitle(sec.first, sec.second, block);
+    }
 }
 
 void Converter::parseHeader(QTextStream &stream, QString &output)
@@ -170,11 +217,30 @@ QTextDocument* Converter::convert(const QString &fileName)
         QString htmlContent;
         htmlContent.reserve(72*60);
 
+        SectionArray sections;
+        QTextBlock block;
+
         QTextStream textStream(&plainFile);
-        while (parsePage(textStream, htmlContent, !htmlContent.isEmpty())) {
+        if (parseTitle(textStream, htmlContent, sections)) {
             cursor->insertHtml(preHtml + htmlContent + postHtml);
-            kWarning() << preHtml + htmlContent + postHtml;
+            block = cursor->block();
+
             cursor->insertBlock();
+            htmlContent.clear();
+
+            addTitiles(sections, block);
+            sections.clear();
+        }
+
+        while (parsePage(textStream, htmlContent, sections, true)) {
+            cursor->insertHtml(preHtml + htmlContent + postHtml);
+            block = cursor->block();
+
+            cursor->insertBlock();
+            htmlContent.clear();
+
+            addTitiles(sections, block);
+            sections.clear();
         }
     }
 

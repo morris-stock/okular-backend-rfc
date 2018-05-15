@@ -34,7 +34,6 @@ RfcGenerator::~RfcGenerator()
 {
 }
 
-
 void RfcGenerator::addPages(KConfigDialog *dlg)
 {
     Okular::TextDocumentSettingsWidget *widget = new Okular::TextDocumentSettingsWidget();
